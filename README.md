@@ -1,2 +1,2 @@
 # mwtc-2020
-wow bennett really destroyed my bank account
+2020 midwest trading competition
