@@ -2,6 +2,7 @@ import grpc
 import argparse
 import threading
 import time
+import json
 
 import xchange.protos.exchange_pb2_grpc as exchange_grpc
 
@@ -68,6 +69,8 @@ class SampleBot(CompetitorBot):
         #Possible updates: 'market_update','fill_update','order_status_response','competition_event','pnl_update', etc.
 
         if exchange_update_response.HasField('pnl_update'):
+            msg = json.loads(exchange_update_response.competition_event.message)
+            print(msg)
             print(exchange_update_response.pnl_update)
         #Check for fills
         if exchange_update_response.HasField('fill_update'):
