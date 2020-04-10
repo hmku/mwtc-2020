@@ -62,6 +62,8 @@ class OptionBot(CompetitorBot):
         self.returns = self.prices.transpose().pct_change().dropna().transpose() # df of returns
         self.prices = self.prices.to_numpy().tolist() # convert to list of lists
         self.returns = self.returns.to_numpy().tolist() # convert to list of lists
+
+        self.cdf_table = pd.Series([si.norm.cdf(i, 0.0, 1.0) for i in np.arange(-4, 4, 0.001)]) # cdf table
     
     def newton_vol_call(self, S, K, T, C, r, sigma):
     
@@ -132,10 +134,12 @@ class OptionBot(CompetitorBot):
         
         spots = np.full(18, S)
         cp = np.concatenate([np.full(9, 1), np.full(9, -1)])
-        d1 = ((np.log(spots / K) + (r + 0.5 * v ** 2) * T) / (v * np.sqrt(T))) * cp
-        d2 = ((np.log(spots / K) + (r - 0.5 * v ** 2) * T) / (v * np.sqrt(T))) * cp
-        cdfd1 = np.array([si.norm.cdf(d, 0.0, 1.0) for d in d1])
-        cdfd2 = np.array([si.norm.cdf(d, 0.0, 1.0) for d in d2])
+        d1 = ((np.log(spots / K) + (r + 0.5 * v * v) * T) / (v * np.sqrt(T))) * cp
+        d2 = ((np.log(spots / K) + (r - 0.5 * v * v) * T) / (v * np.sqrt(T))) * cp
+        d1_ind = np.clip((d1 + 4) * 1000, 0, 7999).astype(int)
+        d2_ind = np.clip((d2 + 4) * 1000, 0, 7999).astype(int)
+        cdfd1 = self.cdf_table[d1_ind].to_numpy()
+        cdfd2 = self.cdf_table[d2_ind].to_numpy()
         result = (S * cdfd1 - K * cdfd2) * cp
         return result
 
@@ -217,7 +221,6 @@ class OptionBot(CompetitorBot):
             vega = self.option_vega(cp_flag, S, K, T, v)
 
             if underlying == 'A':
-                print("FAIRS: " + str(theo))
                 print("Price of A: " + str(S))
 
             self.chains[underlying].loc[is_option, "theo"] = theo
