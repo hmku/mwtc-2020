@@ -120,6 +120,8 @@ class SampleBot(CompetitorBot):
             
             print(self.ltfs)
 
+        if exchange_update_response.HasField('market_update'):
+            print(exchange_update_response.market_update)
 
         if exchange_update_response.HasField('pnl_update'):
             print(exchange_update_response.pnl_update)
