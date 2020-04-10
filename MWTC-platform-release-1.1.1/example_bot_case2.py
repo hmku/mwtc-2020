@@ -19,10 +19,12 @@ import pandas as pd
 import math
 import numpy as np
 from scipy.stats import norm
+import scipy.stats as si
 
 TMIN = 10e-4
 
 class OptionBot(CompetitorBot):
+
     def __init__(self, *args, **kwargs):
         Client.__init__(self)
         self.num_assets = 10
@@ -53,14 +55,78 @@ class OptionBot(CompetitorBot):
             self.all_assets += opt_names
         self.all_assets = sorted(self.all_assets, key=len) #sorts assets from shortest to longest.  Will put underlyings first
 
+    
+    def newton_vol_call(S, K, T, C, r, sigma):
+    
+        #S: spot price
+        #K: strike price
+        #T: time to maturity
+        #C: Call value
+        #r: interest rate
+        #sigma: volatility of underlying asset
+        
+        d1 = (np.log(S / K) + (r - 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
+        d2 = (np.log(S / K) + (r - 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
+        
+        fx = S * si.norm.cdf(d1, 0.0, 1.0) - K * np.exp(-r * T) * si.norm.cdf(d2, 0.0, 1.0) - C
+        
+        vega = (1 / np.sqrt(2 * np.pi)) * S * np.sqrt(T) * np.exp(-(si.norm.cdf(d1, 0.0, 1.0) ** 2) * 0.5)
+        
+        tolerance = 0.000001
+        x0 = sigma
+        xnew  = x0
+        xold = x0 - 1
+            
+        while abs(xnew - xold) > tolerance:
+        
+            xold = xnew
+            xnew = (xnew - fx - C) / vega
+            
+        return abs(xnew)
+    
+
+    def newton_vol_put(S, K, T, P, r, sigma):
+    
+        d1 = (np.log(S / K) + (r - 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
+        d2 = (np.log(S / K) + (r - 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
+        
+        fx = K * np.exp(-r * T) * si.norm.cdf(-d2, 0.0, 1.0) - S * si.norm.cdf(-d1, 0.0, 1.0) - P
+        
+        vega = (1 / np.sqrt(2 * np.pi)) * S * np.sqrt(T) * np.exp(-(si.norm.cdf(d1, 0.0, 1.0) ** 2) * 0.5)
+        
+        tolerance = 0.000001
+        x0 = sigma
+        xnew  = x0
+        xold = x0 - 1
+            
+        while abs(xnew - xold) > tolerance:
+        
+            xold = xnew
+            xnew = (xnew - fx - P) / vega
+            
+        return abs(xnew)
+
+
     def gen_vol_level(self, other_params = None):
         #come up with a vol estimate here
         return .5
-
-    def option_pricer(self,cp_flag,S,K,T,v,r=0,q=0.0):
-        #You'll need to have this function be vectorized in order to be fast enough
-        #Your greek estimates will be incorrect until you fill this in
-        return .5
+    
+    def option_pricer(self, cp_flag, S, K, T, v, r=0, q=0.0):
+    
+        #S: spot price
+        #K: strike price
+        #T: time to maturity
+        #r: interest rate
+        #v: volatility of underlying asset
+        
+        spots = np.full(18, S)
+        cp = np.concatenate([np.full(9, 1), np.full(9, -1)])
+        d1 = ((np.log(spots / K) + (r + 0.5 * v ** 2) * T) / (v * np.sqrt(T))) * cp
+        d2 = ((np.log(spots / K) + (r - 0.5 * v ** 2) * T) / (v * np.sqrt(T))) * cp
+        cdfd1 = np.array([si.norm.cdf(d, 0.0, 1.0) for d in d1])
+        cdfd2 = np.array([si.norm.cdf(d, 0.0, 1.0) for d in d2])
+        result = (S * cdfd1 - K * np.exp(-r * T) * cdfd2) * cp
+        return result
 
     def option_delta(self, cp_flag, S, K, T, v, r = 0):
         return (self.option_pricer(cp_flag, S + TMIN, K, T, v, r) - self.option_pricer(cp_flag, S, K, T, v, r)) / TMIN
@@ -84,6 +150,7 @@ class OptionBot(CompetitorBot):
     def handle_market_update(self, exchange_update_response):
         update = getattr(exchange_update_response, 'market_update')
         for underlying in self.chains:
+            
             bbid_pxs = []
             bbid_szs = []
             bask_pxs = []
@@ -118,6 +185,10 @@ class OptionBot(CompetitorBot):
             T = (self.total_price_updates - self.num_price_updates) / self.annual_price_updates
             K = np.array(options_only_chain.index.str[1:-1]).astype(int)
             S = (self.chains[underlying].loc[underlying, "bbid_px"] + self.chains[underlying].loc[underlying, "bask_px"]) / 2
+            if math.isinf(S):
+                break
+            
+            #print(underlying, v, cp_flag, T, K, S)
 
             theo = self.option_pricer(cp_flag, S, K, T, v)
             delta = self.option_delta(cp_flag, S, K, T, v)
@@ -170,6 +241,38 @@ class OptionBot(CompetitorBot):
                 self.chains[c[0]].loc[c, "my_ask_id"] = ""
 
     def handle_exchange_update(self, exchange_update_response):
+
+        # if exchange_update_response.HasField('market_update'):
+        #     mu = exchange_update_response.market_update
+        #     print(mu)
+        #     vol = 0
+        #     strike = 0
+        #     r = 0
+        #     time = 0
+        #     spot = 0
+            # bu = exchange_update_response.market_update.book_updates
+            # for option in bu:
+            #     if len(bu[option].bids) > 0 and len(bu[option].asks) > 0:
+            #         v = bu[option]
+            #         fp = (v.bids[0].px * v.bids[0].qty + v.asks[0].px * v.asks[0].qty)/(v.bids[0].qty + v.asks[0].qty)
+            #         self.option[option] = fp
+            #         iv = 0
+            #         print(fp)
+
+            #         if len(option) > 2:
+            #             strike = option[1:-1]
+            #             r = 0                   # Risk free rate
+            #             v = 0.5                 # volatility (adjusted)
+            #             time = 0                # Time until expiration
+            #             spot = 0                # Spot price
+            #             C = fp                  # Call Value
+            #             if option[-1] == 'C':
+            #                 iv = newton_vol_call(spot, strike, time, C, r, v)
+            #             else:
+            #                 iv = newton_vol_put(spot, strike, time, C, r, v)
+                
+            #         self.iv[option] = iv
+
         if exchange_update_response.HasField('market_update') and float(exchange_update_response.market_update.book_updates["A"].bids[0].px) != float(self.chains["A"].loc["A", "bbid_px"]): #if its a market update and the its price change update
             self.num_price_updates += 1
             self.handle_market_update(exchange_update_response)
@@ -179,6 +282,7 @@ class OptionBot(CompetitorBot):
             try:
                 if exchange_update_response.HasField(field):
                     print(field, getattr(exchange_update_response, field))
+                    x = 0
             except:
                 print("error with " + field)
 
