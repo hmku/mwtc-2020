@@ -24,7 +24,8 @@ from statistics import stdev
 
 TMIN = 10e-4
 
-DATA_PATH = 'https://raw.githubusercontent.com/hmku/mwtc-2020/master/MWTC-platform-release-1.1.1/data/normalized_price_paths/history_0.csv'
+DATA_PATH = 'data/normalized_price_paths/history_0.csv'
+NORMAL_CDF_PATH = 'case2/normal_cdf.csv'
 
 class OptionBot(CompetitorBot):
 
@@ -63,7 +64,7 @@ class OptionBot(CompetitorBot):
         self.prices = self.prices.to_numpy().tolist() # convert to list of lists
         self.returns = self.returns.to_numpy().tolist() # convert to list of lists
 
-        self.cdf_table = pd.Series([si.norm.cdf(i, 0.0, 1.0) for i in np.arange(-4, 4, 0.001)]) # cdf table
+        self.cdf_table = pd.read_csv(NORMAL_CDF_PATH, index_col=0, names='p').iloc[:,0] # cdf table
     
     def newton_vol_call(self, S, K, T, C, r, sigma):
     

@@ -1,153 +1,59 @@
 Registration successful.
 Case has begun. Starting to handle exchange updates...
-Price of A: 103.935
-pnl_update realized_pnl: "-2745.93"
-timestamp: "1586531774423"
-
-pnl_update realized_pnl: "-5023.38"
-timestamp: "1586531775423"
-
-Price of A: 105.07499999999999
-pnl_update realized_pnl: "-2959.10"
-timestamp: "1586531776424"
-
-Price of A: 105.775
-pnl_update realized_pnl: "-5335.25"
-m2m_pnl: "2172.16"
-timestamp: "1586531777426"
-
-pnl_update realized_pnl: "-7354.00"
-m2m_pnl: "2884.92"
-timestamp: "1586531778427"
-
-Price of A: 104.945
-pnl_update realized_pnl: "-5700.99"
-timestamp: "1586531779432"
-
-Price of A: 106.015
-pnl_update realized_pnl: "-4321.05"
-timestamp: "1586531780433"
-
-pnl_update realized_pnl: "-4149.64"
-m2m_pnl: "2561.82"
-timestamp: "1586531781436"
-
-Price of A: 105.41499999999999
-pnl_update realized_pnl: "-5853.77"
-m2m_pnl: "2585.28"
-timestamp: "1586531782439"
-
-pnl_update realized_pnl: "-715.56"
-timestamp: "1586531783440"
-
-Price of A: 104.625
-pnl_update realized_pnl: "3327.78"
-timestamp: "1586531784443"
-
-Price of A: 105.17500000000001
-pnl_update realized_pnl: "2482.60"
-timestamp: "1586531785444"
-
-pnl_update realized_pnl: "377.63"
-timestamp: "1586531786445"
-
-Price of A: 104.535
-pnl_update realized_pnl: "1377.93"
-timestamp: "1586531787445"
-
-Price of A: 105.025
-pnl_update realized_pnl: "807.40"
-timestamp: "1586531788446"
-
-pnl_update realized_pnl: "1995.22"
-timestamp: "1586531789447"
-
-Price of A: 105.58500000000001
-pnl_update realized_pnl: "1953.53"
-timestamp: "1586531790449"
-
-pnl_update realized_pnl: "3060.38"
-timestamp: "1586531791449"
-
-Price of A: 105.035
-pnl_update realized_pnl: "2489.78"
-timestamp: "1586531792455"
-
-Price of A: 104.17500000000001
-pnl_update realized_pnl: "2908.12"
-timestamp: "1586531793458"
-
-pnl_update realized_pnl: "4750.27"
-timestamp: "1586531794462"
-
-Price of A: 104.61500000000001
-pnl_update realized_pnl: "4153.43"
-timestamp: "1586531795463"
-
-pnl_update realized_pnl: "4953.12"
-timestamp: "1586531796464"
-
-Price of A: 105.435
-pnl_update realized_pnl: "6518.44"
-m2m_pnl: "3089.94"
-timestamp: "1586531797466"
-
-Price of A: 104.57499999999999
-pnl_update realized_pnl: "9483.67"
-timestamp: "1586531798466"
-
-pnl_update realized_pnl: "9160.00"
-timestamp: "1586531799468"
-
-Price of A: 103.775
-pnl_update realized_pnl: "6863.30"
-m2m_pnl: "3366.45"
-timestamp: "1586531800469"
-
-Price of A: 103.215
-pnl_update realized_pnl: "8113.26"
-timestamp: "1586531801470"
-
-pnl_update realized_pnl: "10599.61"
-timestamp: "1586531802472"
-
-Price of A: 103.785
-pnl_update realized_pnl: "10480.09"
-m2m_pnl: "3340.84"
-timestamp: "1586531803474"
-
-pnl_update realized_pnl: "9990.89"
-timestamp: "1586531804476"
-
-Price of A: 103.155
-pnl_update realized_pnl: "13502.21"
-m2m_pnl: "3301.89"
-timestamp: "1586531805479"
-
-Price of A: 104.005
-pnl_update realized_pnl: "12875.26"
-timestamp: "1586531806481"
-
-pnl_update realized_pnl: "12135.08"
-m2m_pnl: "2570.79"
-timestamp: "1586531807484"
-
-Price of A: 103.485
-pnl_update realized_pnl: "11403.73"
-m2m_pnl: "2629.69"
-timestamp: "1586531808487"
-
-Price of A: 102.955
-pnl_update realized_pnl: "11920.33"
-timestamp: "1586531809489"
-
-pnl_update realized_pnl: "8611.93"
-timestamp: "1586531810490"
-
-Price of A: 101.995
-pnl_update realized_pnl: "8021.51"
-timestamp: "1586531811491"
-
-pnl_update realized_pnl: "8778.20"
-timestamp: "1586531812493"
-
+Price of A: 97.495
+Price of A: 96.965
+Price of A: 96.405
+Price of A: 95.815
+Price of A: 95.205
+Price of A: 94.60499999999999
+Price of A: 94.195
+Price of A: 94.745
+Price of A: 94.345
+Price of A: 94.685
+Price of A: 94.315
+Price of A: 94.805
+Price of A: 95.445
+Price of A: 94.905
+Price of A: 94.445
+Price of A: 93.795
+Price of A: 93.375
+Price of A: 93.845
+Price of A: 93.375
+Price of A: 92.845
+Price of A: 92.38499999999999
+Price of A: 93.065
+Price of A: 93.755
+Price of A: 94.315
+Price of A: 94.845
+Price of A: 95.535
+Price of A: 96.155
+Price of A: 96.64500000000001
+Price of A: 96.055
+Price of A: 96.715
+Price of A: 97.14500000000001
+Price of A: 97.815
+Price of A: 97.445
+Price of A: 97.035
+Price of A: 96.625
+Price of A: 97.095
+Price of A: 97.735
+Price of A: 98.215
+Price of A: 98.655
+Price of A: 99.015
+Price of A: 98.64500000000001
+Price of A: 99.155
+Price of A: 99.725
+Price of A: 100.38499999999999
+Price of A: 99.735
+Price of A: 100.235
+Price of A: 100.92500000000001
+Price of A: 101.64500000000001
+Price of A: 102.015
+Price of A: 101.36500000000001
+Price of A: 101.985
+Price of A: 102.445
+Price of A: 101.795
+Price of A: 102.345
+Price of A: 101.60499999999999
+Price of A: 102.465
+Price of A: 102.89500000000001
