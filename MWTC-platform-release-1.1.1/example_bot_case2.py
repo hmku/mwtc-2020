@@ -20,8 +20,11 @@ import math
 import numpy as np
 from scipy.stats import norm
 import scipy.stats as si
+from statistics import stdev
 
 TMIN = 10e-4
+
+DATA_PATH = 'https://raw.githubusercontent.com/hmku/mwtc-2020/master/MWTC-platform-release-1.1.1/data/normalized_price_paths/history_0.csv'
 
 class OptionBot(CompetitorBot):
 
@@ -55,8 +58,12 @@ class OptionBot(CompetitorBot):
             self.all_assets += opt_names
         self.all_assets = sorted(self.all_assets, key=len) #sorts assets from shortest to longest.  Will put underlyings first
 
+        self.prices = pd.read_csv(DATA_PATH, index_col=0, header=0) # df of prices
+        self.returns = self.prices.transpose().pct_change().dropna().transpose() # df of returns
+        self.prices = self.prices.to_numpy().tolist() # convert to list of lists
+        self.returns = self.returns.to_numpy().tolist() # convert to list of lists
     
-    def newton_vol_call(S, K, T, C, r, sigma):
+    def newton_vol_call(self, S, K, T, C, r, sigma):
     
         #S: spot price
         #K: strike price
@@ -85,7 +92,7 @@ class OptionBot(CompetitorBot):
         return abs(xnew)
     
 
-    def newton_vol_put(S, K, T, P, r, sigma):
+    def newton_vol_put(self, S, K, T, P, r, sigma):
     
         d1 = (np.log(S / K) + (r - 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
         d2 = (np.log(S / K) + (r - 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
@@ -106,11 +113,15 @@ class OptionBot(CompetitorBot):
             
         return abs(xnew)
 
+    # helper function for finding rolling historical vol given lookback
+    def rolling_vol(self, tx, lookback):
+        i = ord(tx) - ord("A")
+        return stdev(self.returns[i][len(self.returns[i])-lookback:])*math.sqrt(self.annual_price_updates)
 
-    def gen_vol_level(self, other_params = None):
+    def gen_vol_level(self, tx, min_lookback=5, lookback_ratio=6):
         #come up with a vol estimate here
-        return .5
-    
+        return self.rolling_vol(tx, max(min_lookback, (self.total_price_updates - self.num_price_updates) // lookback_ratio))
+
     def option_pricer(self, cp_flag, S, K, T, v, r=0, q=0.0):
     
         #S: spot price
@@ -125,7 +136,7 @@ class OptionBot(CompetitorBot):
         d2 = ((np.log(spots / K) + (r - 0.5 * v ** 2) * T) / (v * np.sqrt(T))) * cp
         cdfd1 = np.array([si.norm.cdf(d, 0.0, 1.0) for d in d1])
         cdfd2 = np.array([si.norm.cdf(d, 0.0, 1.0) for d in d2])
-        result = (S * cdfd1 - K * np.exp(-r * T) * cdfd2) * cp
+        result = (S * cdfd1 - K * cdfd2) * cp
         return result
 
     def option_delta(self, cp_flag, S, K, T, v, r = 0):
@@ -149,8 +160,17 @@ class OptionBot(CompetitorBot):
 
     def handle_market_update(self, exchange_update_response):
         update = getattr(exchange_update_response, 'market_update')
+        
+        # append prices to prices array, update returns array
+        for i, tx in enumerate(self.chains):
+            try:
+                curr_price = (float(update.book_updates[tx].bids[0].px) + float(update.book_updates[tx].asks[0].px)) / 2
+            except IndexError:
+                curr_price = float("inf")
+            self.prices[i].append(curr_price)
+            self.returns[i].append(self.prices[i][-1] / self.prices[i][-2] - 1)
+
         for underlying in self.chains:
-            
             bbid_pxs = []
             bbid_szs = []
             bask_pxs = []
@@ -180,7 +200,7 @@ class OptionBot(CompetitorBot):
 
             is_option = self.chains[underlying].index.str.len() > 1
             options_only_chain = self.chains[underlying].loc[is_option]
-            v = self.gen_vol_level()
+            v = self.gen_vol_level(underlying)
             cp_flag = np.array(options_only_chain.index.str[-1])
             T = (self.total_price_updates - self.num_price_updates) / self.annual_price_updates
             K = np.array(options_only_chain.index.str[1:-1]).astype(int)
@@ -195,6 +215,10 @@ class OptionBot(CompetitorBot):
             gamma = self.option_gamma(cp_flag, S, K, T, v)
             theta = self.option_theta(cp_flag, S, K, T, v)
             vega = self.option_vega(cp_flag, S, K, T, v)
+
+            if underlying == 'A':
+                print("FAIRS: " + str(theo))
+                print("Price of A: " + str(S))
 
             self.chains[underlying].loc[is_option, "theo"] = theo
             self.chains[underlying].loc[is_option, "delta"] = delta
@@ -241,44 +265,13 @@ class OptionBot(CompetitorBot):
                 self.chains[c[0]].loc[c, "my_ask_id"] = ""
 
     def handle_exchange_update(self, exchange_update_response):
-
-        # if exchange_update_response.HasField('market_update'):
-        #     mu = exchange_update_response.market_update
-        #     print(mu)
-        #     vol = 0
-        #     strike = 0
-        #     r = 0
-        #     time = 0
-        #     spot = 0
-            # bu = exchange_update_response.market_update.book_updates
-            # for option in bu:
-            #     if len(bu[option].bids) > 0 and len(bu[option].asks) > 0:
-            #         v = bu[option]
-            #         fp = (v.bids[0].px * v.bids[0].qty + v.asks[0].px * v.asks[0].qty)/(v.bids[0].qty + v.asks[0].qty)
-            #         self.option[option] = fp
-            #         iv = 0
-            #         print(fp)
-
-            #         if len(option) > 2:
-            #             strike = option[1:-1]
-            #             r = 0                   # Risk free rate
-            #             v = 0.5                 # volatility (adjusted)
-            #             time = 0                # Time until expiration
-            #             spot = 0                # Spot price
-            #             C = fp                  # Call Value
-            #             if option[-1] == 'C':
-            #                 iv = newton_vol_call(spot, strike, time, C, r, v)
-            #             else:
-            #                 iv = newton_vol_put(spot, strike, time, C, r, v)
-                
-            #         self.iv[option] = iv
-
         if exchange_update_response.HasField('market_update') and float(exchange_update_response.market_update.book_updates["A"].bids[0].px) != float(self.chains["A"].loc["A", "bbid_px"]): #if its a market update and the its price change update
             self.num_price_updates += 1
             self.handle_market_update(exchange_update_response)
         if exchange_update_response.HasField('fill_update'):
             self.handle_fill_update(exchange_update_response)
-        for field in ['order_status_response','competition_event','pnl_update', 'liquidation_event']:
+        # for field in ['order_status_response','competition_event','pnl_update', 'liquidation_event']:
+        for field in ['competition_event','pnl_update', 'liquidation_event']:
             try:
                 if exchange_update_response.HasField(field):
                     print(field, getattr(exchange_update_response, field))
