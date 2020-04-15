@@ -19,17 +19,10 @@ import pandas as pd
 import math
 import numpy as np
 from scipy.stats import norm
-import scipy.stats as si
-from statistics import stdev
-from multiprocessing import Pool
 
 TMIN = 10e-4
 
-DATA_PATH = 'data/normalized_price_paths/history_0.csv'
-NORMAL_CDF_PATH = 'case2/normal_cdf.csv'
-
 class OptionBot(CompetitorBot):
-
     def __init__(self, *args, **kwargs):
         Client.__init__(self)
         self.num_assets = 10
@@ -60,90 +53,34 @@ class OptionBot(CompetitorBot):
             self.all_assets += opt_names
         self.all_assets = sorted(self.all_assets, key=len) #sorts assets from shortest to longest.  Will put underlyings first
 
-        self.prices = pd.read_csv(DATA_PATH, index_col=0, header=0) # df of prices
-        self.returns = self.prices.transpose().pct_change().dropna().transpose() # df of returns
-        self.prices = self.prices.to_numpy().tolist() # convert to list of lists
-        self.returns = self.returns.to_numpy().tolist() # convert to list of lists
 
-        self.cdf_table = pd.read_csv(NORMAL_CDF_PATH, index_col=0, names='p').iloc[:,0] # cdf table
-    
-    def newton_vol_call(self, S, K, T, C, r, sigma):
+    #Intensive Black-Scholes model developed by samuel kee, vincent xu, and harrison ku
+    def euro_vanilla(S, K, T, r, sigma, option = 'call'):
     
         #S: spot price
         #K: strike price
         #T: time to maturity
-        #C: Call value
         #r: interest rate
         #sigma: volatility of underlying asset
         
-        d1 = (np.log(S / K) + (r - 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
+        d1 = (np.log(S / K) + (r + 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
         d2 = (np.log(S / K) + (r - 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
         
-        fx = S * si.norm.cdf(d1, 0.0, 1.0) - K * np.exp(-r * T) * si.norm.cdf(d2, 0.0, 1.0) - C
-        
-        vega = (1 / np.sqrt(2 * np.pi)) * S * np.sqrt(T) * np.exp(-(si.norm.cdf(d1, 0.0, 1.0) ** 2) * 0.5)
-        
-        tolerance = 0.000001
-        x0 = sigma
-        xnew  = x0
-        xold = x0 - 1
+        if option == 'call':
+            result = (S * si.norm.cdf(d1, 0.0, 1.0) - K * np.exp(-r * T) * si.norm.cdf(d2, 0.0, 1.0))
+        if option == 'put':
+            result = (K * np.exp(-r * T) * si.norm.cdf(-d2, 0.0, 1.0) - S * si.norm.cdf(-d1, 0.0, 1.0))
             
-        while abs(xnew - xold) > tolerance:
-        
-            xold = xnew
-            xnew = (xnew - fx - C) / vega
-            
-        return abs(xnew)
-    
-
-    def newton_vol_put(self, S, K, T, P, r, sigma):
-    
-        d1 = (np.log(S / K) + (r - 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
-        d2 = (np.log(S / K) + (r - 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
-        
-        fx = K * np.exp(-r * T) * si.norm.cdf(-d2, 0.0, 1.0) - S * si.norm.cdf(-d1, 0.0, 1.0) - P
-        
-        vega = (1 / np.sqrt(2 * np.pi)) * S * np.sqrt(T) * np.exp(-(si.norm.cdf(d1, 0.0, 1.0) ** 2) * 0.5)
-        
-        tolerance = 0.000001
-        x0 = sigma
-        xnew  = x0
-        xold = x0 - 1
-            
-        while abs(xnew - xold) > tolerance:
-        
-            xold = xnew
-            xnew = (xnew - fx - P) / vega
-            
-        return abs(xnew)
-
-    # helper function for finding rolling historical vol given lookback
-    def rolling_vol(self, tx, lookback):
-        i = ord(tx) - ord("A")
-        return stdev(self.returns[i][len(self.returns[i])-lookback:])*math.sqrt(self.annual_price_updates)
-
-    def gen_vol_level(self, tx, min_lookback=5, lookback_ratio=6):
-        #come up with a vol estimate here
-        return self.rolling_vol(tx, max(min_lookback, (self.total_price_updates - self.num_price_updates) // lookback_ratio))
-
-    def option_pricer(self, cp_flag, S, K, T, v, r=0, q=0.0):
-    
-        #S: spot price
-        #K: strike price
-        #T: time to maturity
-        #r: interest rate
-        #v: volatility of underlying asset
-        
-        spots = np.full(18, S)
-        cp = np.concatenate([np.full(9, 1), np.full(9, -1)])
-        d1 = ((np.log(spots / K) + (r + 0.5 * v * v) * T) / (v * np.sqrt(T))) * cp
-        d2 = ((np.log(spots / K) + (r - 0.5 * v * v) * T) / (v * np.sqrt(T))) * cp
-        d1_ind = np.clip((d1 + 4) * 1000, 0, 7999).astype(int)
-        d2_ind = np.clip((d2 + 4) * 1000, 0, 7999).astype(int)
-        cdfd1 = self.cdf_table[d1_ind].to_numpy()
-        cdfd2 = self.cdf_table[d2_ind].to_numpy()
-        result = (S * cdfd1 - K * cdfd2) * cp
         return result
+
+    def gen_vol_level(self, other_params = None):
+        #come up with a vol estimate here
+        return .5
+
+    def option_pricer(self,cp_flag,S,K,T,v,r=0,q=0.0):
+        #You'll need to have this function be vectorized in order to be fast enough
+        #Your greek estimates will be incorrect until you fill this in
+        return .5
 
     def option_delta(self, cp_flag, S, K, T, v, r = 0):
         return (self.option_pricer(cp_flag, S + TMIN, K, T, v, r) - self.option_pricer(cp_flag, S, K, T, v, r)) / TMIN
@@ -165,21 +102,7 @@ class OptionBot(CompetitorBot):
         return self.place_order(OrderType.LIMIT, OrderSide.BID, row["my_bid_sz"], row.name, "%.2f" % round(row["my_bid_px"], 2))[1].order_id if row["my_bid_sz"] > 0 else "", self.place_order(OrderType.LIMIT, OrderSide.ASK, row["my_ask_sz"], row.name, "%.2f" % round(row["my_ask_px"], 2))[1].order_id if row["my_ask_sz"] > 0 else ""
 
     def handle_market_update(self, exchange_update_response):
-        if exchange_update_response.HasField('freeze_event'):
-            print('Freeze!')
-            print(exchange_update_response.freeze_event.message)
-            
         update = getattr(exchange_update_response, 'market_update')
-        
-        # append prices to prices array, update returns array
-        for i, tx in enumerate(self.chains):
-            try:
-                curr_price = (float(update.book_updates[tx].bids[0].px) + float(update.book_updates[tx].asks[0].px)) / 2
-            except IndexError:
-                curr_price = float("inf")
-            self.prices[i].append(curr_price)
-            self.returns[i].append(self.prices[i][-1] / self.prices[i][-2] - 1)
-
         for underlying in self.chains:
             bbid_pxs = []
             bbid_szs = []
@@ -210,28 +133,18 @@ class OptionBot(CompetitorBot):
 
             is_option = self.chains[underlying].index.str.len() > 1
             options_only_chain = self.chains[underlying].loc[is_option]
-            v = self.gen_vol_level(underlying)
+            v = self.gen_vol_level()
             cp_flag = np.array(options_only_chain.index.str[-1])
             T = (self.total_price_updates - self.num_price_updates) / self.annual_price_updates
             K = np.array(options_only_chain.index.str[1:-1]).astype(int)
             S = (self.chains[underlying].loc[underlying, "bbid_px"] + self.chains[underlying].loc[underlying, "bask_px"]) / 2
-            if math.isinf(S):
-                break
-            
-            #print(underlying, v, cp_flag, T, K, S)
-
-            vals = (cp_flag, S, K, T, v)
-            with Pool(5) as p:
-                t = p.starmap(self.option_pricer, [(cp_flag, S, K, T, v)])
-            
+            if underlying == 'A':
+                print("Price of A: " + str(S))
             theo = self.option_pricer(cp_flag, S, K, T, v)
             delta = self.option_delta(cp_flag, S, K, T, v)
             gamma = self.option_gamma(cp_flag, S, K, T, v)
             theta = self.option_theta(cp_flag, S, K, T, v)
             vega = self.option_vega(cp_flag, S, K, T, v)
-
-            if underlying == 'A':
-                print("Price of A: " + str(S))
 
             self.chains[underlying].loc[is_option, "theo"] = theo
             self.chains[underlying].loc[is_option, "delta"] = delta
@@ -283,8 +196,7 @@ class OptionBot(CompetitorBot):
             self.handle_market_update(exchange_update_response)
         if exchange_update_response.HasField('fill_update'):
             self.handle_fill_update(exchange_update_response)
-        # for field in ['order_status_response','competition_event','pnl_update', 'liquidation_event']:
-        for field in ['competition_event','pnl_update', 'liquidation_event']:
+        for field in ['order_status_response','competition_event','pnl_update', 'liquidation_event']:
             try:
                 if exchange_update_response.HasField(field):
                     #print(field, getattr(exchange_update_response, field))

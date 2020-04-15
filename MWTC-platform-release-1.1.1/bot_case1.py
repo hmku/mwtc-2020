@@ -84,6 +84,10 @@ class SampleBot(CompetitorBot):
     def handle_exchange_update(self, exchange_update_response):
         #Possible updates: 'market_update','fill_update','order_status_response','competition_event','pnl_update', etc.
 
+        if exchange_update_response.HasField('freeze_event'):
+            print('Freeze!')
+            print(exchange_update_response.freeze_event.message)
+
         if exchange_update_response.HasField('competition_event'):
             msg = json.loads(exchange_update_response.competition_event.message)
             print(msg) # date, consumption, avg_price, cons_change
