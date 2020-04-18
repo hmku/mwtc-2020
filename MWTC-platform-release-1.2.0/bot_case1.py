@@ -6,6 +6,7 @@ import json
 import pickle
 from datetime import date, timedelta, datetime
 from bisect import bisect_right
+import math
 
 import xchange.protos.exchange_pb2_grpc as exchange_grpc
 
@@ -19,7 +20,6 @@ from xchange.competitor_bot import CompetitorBot
 from case1.BasicMM import BasicMM
 
 #Parameters for BasicMM
-MAX_RANGES = {'EFM':0.1, 'EFQ':0.1, 'EFV': 0.1, 'EFZ': 0.1} # changed this for now
 TICK_SIZES = {'EFM':0.01, 'EFQ':0.01, 'EFV':0.01, 'EFZ':0.01}
 #During the competition, LTFs should be dynamic: change this
 # LTFS = {'EFM':2.5, 'EFQ':3.0, 'EFV': 3.5, 'EFZ': 4.0}
@@ -42,7 +42,7 @@ class SampleBot(CompetitorBot):
             date(2000, 6, 30), date(2000, 8, 31), date(2000, 10, 30), date(2000, 12, 31)]))
         #This class does gives basic market making orders based on your position
         #See BasicMM.py
-        self.mm = BasicMM(MAX_RANGES, TICK_SIZES)
+        self.mm = BasicMM(TICK_SIZES)
 
         #These track your orders
         self.bids = {c: {} for c in self.contracts}
@@ -51,9 +51,10 @@ class SampleBot(CompetitorBot):
         self.max_pos = 1000
 
         #can/should be dynamic, and be different for each contract.  change this.
-        self.ltfs = {}
-        self.clips = [c: 10 for c in self.contracts]
-        self.width = [c: 0.10 for c in self.contracts]
+        self.ltfs = {c: 3 for c in self.contracts}
+        self.clip = {c: 10 for c in self.contracts}
+        self.width = {c: 0.20 for c in self.contracts}
+        self.max_ranges = {c: 0.20 for c in self.contracts}
 
         # gas/coal stores for this year (set to None for now)
         self.gas = None
@@ -69,7 +70,7 @@ class SampleBot(CompetitorBot):
                     for c in self.contracts:
                         if (self.bids[c] == {}) and (self.asks[c] == {}):
                             #Get orders from market maker
-                            ords = self.mm.basic_mm(self.ltfs[c], self.width[c], self.max_pos, self.clip[c], c)
+                            ords = self.mm.basic_mm(self.ltfs[c], self.width[c], self.max_pos, self.clip[c], c, self.max_ranges)
                             for i in range(min(len(ords['bid_prices']), len(ords['ask_prices']))):
                                 o = self.place_order(OrderType.LIMIT, OrderSide.BID, ords['bid_sizes'][i], c, str(
                                     ords['bid_prices'][i]))[1]
@@ -84,9 +85,9 @@ class SampleBot(CompetitorBot):
     def handle_exchange_update(self, exchange_update_response):
         #Possible updates: 'market_update','fill_update','order_status_response','competition_event','pnl_update', etc.
 
-        # if exchange_update_response.HasField('freeze_event'):
-        #     print('Freeze!')
-        #     print(exchange_update_response.freeze_event.message)
+        if exchange_update_response.HasField('freeze_event'):
+            print('Freeze!')
+            print(exchange_update_response.freeze_event.message)
 
         if exchange_update_response.HasField('competition_event'):
             msg = json.loads(exchange_update_response.competition_event.message)
@@ -121,11 +122,15 @@ class SampleBot(CompetitorBot):
                 pp = 1 - pc - pg # p(peakers at expiry)
                 ppcons = bisect_right(CDFS[d], pc + pg + (pp/2)) - 1 # avg consumption given peaker plants
                 self.ltfs[contract] = pg * 2 + pc * 3 + pp * (max(3, price) + (ppcons + s - c) * 0.001)
-                self.width[contract] = max(2, math.sqrt(d)) * 0.005 # get tighter as we get closer to expiry
-                self.clips[contract] = 100 - d // 5
+                self.width[contract] = max(1, math.sqrt(d)) * 0.01 # get tighter as we get closer to expiry
+                self.clip[contract] = int(1 / self.width[contract]) # start with small size, get bigger
+                self.max_ranges = self.width # try this for now
+            print(self.ltfs)
+            print(self.mm.pos)
 
         if exchange_update_response.HasField('market_update'):
-            print(exchange_update_response.market_update)
+            pass
+            # print(exchange_update_response.market_update)
 
         if exchange_update_response.HasField('pnl_update'):
             print(exchange_update_response.pnl_update)
@@ -160,7 +165,7 @@ class SampleBot(CompetitorBot):
             #Market maker needs to update stf based on new position
             self.mm.update_pos(c, side * q)
             #Get new orders from market maker
-            ords = self.mm.basic_mm(self.ltfs[c], self.width[c], self.max_pos, self.clip[c], c)
+            ords = self.mm.basic_mm(self.ltfs[c], self.width[c], self.max_pos, self.clip[c], c, self.max_ranges)
             #Place any order changes to the exchange
             for ba in ['bid','ask']:
                 ords[ba + '_prices'] = [x for i,x in enumerate(

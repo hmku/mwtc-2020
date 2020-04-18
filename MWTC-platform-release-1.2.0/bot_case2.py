@@ -26,7 +26,8 @@ from multiprocessing import Pool
 
 TMIN = 10e-4
 
-DATA_PATH = 'data/normalized_price_paths/history_0.csv'
+DATA_PATH = 'http://3.22.171.74/history.csv'
+# DATA_PATH = 'data/normalized_price_paths/history_0.csv'
 NORMAL_CDF_PATH = 'case2/normal_cdf.csv'
 
 class OptionBot(CompetitorBot):
@@ -62,7 +63,8 @@ class OptionBot(CompetitorBot):
         self.all_assets = sorted(self.all_assets, key=len) #sorts assets from shortest to longest.  Will put underlyings first
 
         self.prices = pd.read_csv(DATA_PATH, index_col=0, header=0) # df of prices
-        self.returns = self.prices.transpose().pct_change().dropna().transpose() # df of returns
+        self.returns = self.prices.transpose().pct_change().dropna()
+        self.returns = np.log(1 + self.returns).transpose() # df of log returns
         self.prices = self.prices.to_numpy().tolist() # convert to list of lists
         self.returns = self.returns.to_numpy().tolist() # convert to list of lists
 
@@ -203,7 +205,7 @@ class OptionBot(CompetitorBot):
         K = np.array(options_only_chain.index.str[1:-1]).astype(int)
         S = (self.chains[underlying].loc[underlying, "bbid_px"] + self.chains[underlying].loc[underlying, "bask_px"]) / 2
         if math.isinf(S):
-            break
+            return False
         
         #print(underlying, v, cp_flag, T, K, S)
         
@@ -224,19 +226,24 @@ class OptionBot(CompetitorBot):
 
         self.chains[underlying].loc[is_option, "my_ask_px"] = self.chains[underlying].loc[is_option, "theo"] + .01
         self.chains[underlying].loc[is_option, "my_bid_px"] = np.maximum(0, self.chains[underlying].loc[is_option, "theo"] - .01)
-        self.chains[underlying].loc[is_option, "my_ask_sz"] = 1000
-        self.chains[underlying].loc[is_option, "my_bid_sz"] = 1000
+        self.chains[underlying].loc[is_option, "my_ask_sz"] = 100
+        self.chains[underlying].loc[is_option, "my_bid_sz"] = 100
 
         asset_delta = (self.chains[underlying]["delta"] * self.chains[underlying]["position"]).sum()
         asset_gamma = (self.chains[underlying]["gamma"] * self.chains[underlying]["position"]).sum()
         asset_theta = (self.chains[underlying]["theta"] * self.chains[underlying]["position"]).sum()
         asset_vega = (self.chains[underlying]["vega"] * self.chains[underlying]["position"]).sum()
 
+        if asset_delta > self.delta_limit or asset_gamma > self.gamma_limit or asset_theta > self.theta_limit or asset_vega > self.vega_limit:
+            return False
+
         b_a = pd.DataFrame(self.chains[underlying].apply(lambda row: self.cancel_place(row), axis = 1).tolist(), index = self.chains[underlying].index)
         b_a.columns = ["my_bid_id", "my_ask_id"]
 
         self.chains[underlying].drop(columns = ["my_bid_id", "my_ask_id"], inplace = True)
         self.chains[underlying] = self.chains[underlying].merge(b_a, left_index = True, right_index = True)
+
+        return True
 
     def handle_market_update(self, exchange_update_response):
         update = getattr(exchange_update_response, 'market_update')
@@ -247,9 +254,12 @@ class OptionBot(CompetitorBot):
             except IndexError:
                 curr_price = float("inf")
             self.prices[i].append(curr_price)
-            self.returns[i].append(self.prices[i][-1] / self.prices[i][-2] - 1)
+            self.returns[i].append(np.log(self.prices[i][-1] / self.prices[i][-2])) # append log returns
 
-        self.pool.starmap(handle_market_update_underlying, tuple(zip(self.chains, [update]*len(self.chains))))
+        # self.pool.starmap(self.handle_market_update_underlying, tuple(zip(self.chains, [update]*len(self.chains))))
+        for underlying in self.chains:
+            if not self.handle_market_update_underlying(underlying, update):
+                break
 
     def handle_fill_update(self, exchange_update_response):
         #therre are almost certainly faster ways to do this
