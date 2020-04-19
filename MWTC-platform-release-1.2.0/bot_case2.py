@@ -22,7 +22,6 @@ import numpy as np
 from scipy.stats import norm
 import scipy.stats as si
 from statistics import stdev
-from multiprocessing import Pool
 
 TMIN = 10e-4
 
@@ -40,10 +39,10 @@ class OptionBot(CompetitorBot):
         self.total_price_updates = 450
         self.annual_price_updates = 1800
 
-        self.delta_limit = 2000
-        self.gamma_limit = 5000
-        self.theta_limit = 5000
-        self.vega_limit = 10e5
+        self.delta_limit = 1000
+        self.gamma_limit = 500 # increase linearly with time
+        self.theta_limit = 500 # increase linearly with time
+        self.vega_limit = 5e5
 
         self.underlyings = [chr(ord("A") + i) for i in range(self.num_assets)]
         self.strikes = list(range(70, 160, 10)) #50-205
@@ -68,9 +67,7 @@ class OptionBot(CompetitorBot):
         self.prices = self.prices.to_numpy().tolist() # convert to list of lists
         self.returns = self.returns.to_numpy().tolist() # convert to list of lists
 
-        self.cdf_table = pd.read_csv(NORMAL_CDF_PATH, index_col=0, names='p').iloc[:,0] # cdf table
-
-        self.pool = Pool(os.cpu_count())
+        self.cdf_table = pd.read_csv(NORMAL_CDF_PATH, index_col=0, names='p').iloc[:,0] # cdf table\
     
     def newton_vol_call(self, S, K, T, C, r, sigma):
     
@@ -169,6 +166,13 @@ class OptionBot(CompetitorBot):
         self.cancel_order(row["my_ask_id"], row.name)
         return self.place_order(OrderType.LIMIT, OrderSide.BID, row["my_bid_sz"], row.name, "%.2f" % round(row["my_bid_px"], 2))[1].order_id if row["my_bid_sz"] > 0 else "", self.place_order(OrderType.LIMIT, OrderSide.ASK, row["my_ask_sz"], row.name, "%.2f" % round(row["my_ask_px"], 2))[1].order_id if row["my_ask_sz"] > 0 else ""
 
+    # return bid size given option chain
+    def get_sizes(self, chain, asset_gamma, asset_theta, asset_vega, def_size):
+        pos = chain['gamma'] * asset_gamma + chain['theta'] * asset_theta + chain['vega'] * asset_vega
+        max_pos = abs(chain['gamma']) + abs(chain['theta']) + abs(chain['vega']) + 1e-15
+        res = (-def_size * (pos / max_pos) + def_size - chain['position'] // 2).astype(int).apply(lambda x: min(x, def_size*2)).apply(lambda x: max(x, 10))
+        return res.astype(int)
+
     def handle_market_update_underlying(self, underlying, update):
         bbid_pxs = []
         bbid_szs = []
@@ -215,8 +219,8 @@ class OptionBot(CompetitorBot):
         theta = self.option_theta(cp_flag, S, K, T, v)
         vega = self.option_vega(cp_flag, S, K, T, v)
 
-        if underlying == 'A':
-            print("Price of A: " + str(S))
+        # if underlying == 'A':
+        #     print("Price of A: " + str(S))
 
         self.chains[underlying].loc[is_option, "theo"] = theo
         self.chains[underlying].loc[is_option, "delta"] = delta
@@ -224,18 +228,29 @@ class OptionBot(CompetitorBot):
         self.chains[underlying].loc[is_option, "theta"] = theta
         self.chains[underlying].loc[is_option, "vega"] = vega
 
-        self.chains[underlying].loc[is_option, "my_ask_px"] = self.chains[underlying].loc[is_option, "theo"] + .01
-        self.chains[underlying].loc[is_option, "my_bid_px"] = np.maximum(0, self.chains[underlying].loc[is_option, "theo"] - .01)
-        self.chains[underlying].loc[is_option, "my_ask_sz"] = 100
-        self.chains[underlying].loc[is_option, "my_bid_sz"] = 100
+        asset_delta = (self.chains[underlying]["delta"] * self.chains[underlying]["position"]).sum() / self.delta_limit
+        asset_gamma = (self.chains[underlying]["gamma"] * self.chains[underlying]["position"]).sum() / self.gamma_limit
+        asset_theta = (self.chains[underlying]["theta"] * self.chains[underlying]["position"]).sum() / self.theta_limit
+        asset_vega = (self.chains[underlying]["vega"] * self.chains[underlying]["position"]).sum() / self.vega_limit
 
-        asset_delta = (self.chains[underlying]["delta"] * self.chains[underlying]["position"]).sum()
-        asset_gamma = (self.chains[underlying]["gamma"] * self.chains[underlying]["position"]).sum()
-        asset_theta = (self.chains[underlying]["theta"] * self.chains[underlying]["position"]).sum()
-        asset_vega = (self.chains[underlying]["vega"] * self.chains[underlying]["position"]).sum()
+        print(asset_delta*self.delta_limit/2000, asset_gamma*self.gamma_limit/5000, asset_theta*self.theta_limit/5000, asset_vega*self.vega_limit/10e5)
+        
+        # hedge delta
+        if abs(asset_delta) > 0.8:
+            if asset_delta < 0:
+                self.place_order(OrderType.MARKET, OrderSide.BID, int(0.3*self.delta_limit), underlying)
+            else:
+                self.place_order(OrderType.MARKET, OrderSide.ASK, int(0.3*self.delta_limit), underlying)
 
-        if asset_delta > self.delta_limit or asset_gamma > self.gamma_limit or asset_theta > self.theta_limit or asset_vega > self.vega_limit:
-            return False
+        def_size = 50
+        edge = 0.1
+        self.chains[underlying].loc[is_option, "my_ask_px"] = self.chains[underlying].loc[is_option, "theo"] + edge
+        self.chains[underlying].loc[is_option, "my_bid_px"] = np.maximum(0, self.chains[underlying].loc[is_option, "theo"] - edge)
+        self.chains[underlying].loc[is_option, "my_bid_sz"] = self.get_sizes(self.chains[underlying].loc[is_option], asset_gamma, asset_theta, asset_vega, def_size)
+        self.chains[underlying].loc[is_option, "my_ask_sz"] = def_size * 2 - self.chains[underlying].loc[is_option, "my_bid_sz"]
+
+        # if asset_delta > self.delta_limit or asset_gamma > self.gamma_limit or asset_theta > self.theta_limit or asset_vega > self.vega_limit:
+        #     return False
 
         b_a = pd.DataFrame(self.chains[underlying].apply(lambda row: self.cancel_place(row), axis = 1).tolist(), index = self.chains[underlying].index)
         b_a.columns = ["my_bid_id", "my_ask_id"]
@@ -253,8 +268,13 @@ class OptionBot(CompetitorBot):
                 curr_price = (float(update.book_updates[tx].bids[0].px) + float(update.book_updates[tx].asks[0].px)) / 2
             except IndexError:
                 curr_price = float("inf")
+                return
             self.prices[i].append(curr_price)
             self.returns[i].append(np.log(self.prices[i][-1] / self.prices[i][-2])) # append log returns
+
+        t = (self.total_price_updates - self.num_price_updates) / self.annual_price_updates
+        self.gamma_limit = 500 * math.exp(5.545*t)
+        self.theta_limit = 500 * math.exp(5.545*t)
 
         # self.pool.starmap(self.handle_market_update_underlying, tuple(zip(self.chains, [update]*len(self.chains))))
         for underlying in self.chains:
@@ -293,13 +313,17 @@ class OptionBot(CompetitorBot):
         if exchange_update_response.HasField('fill_update'):
             self.handle_fill_update(exchange_update_response)
         # for field in ['order_status_response','competition_event','pnl_update', 'liquidation_event']:
-        for field in ['competition_event','pnl_update', 'liquidation_event']:
+        for field in ['liquidation_event']:
             try:
                 if exchange_update_response.HasField(field):
                     #print(field, getattr(exchange_update_response, field))
-                    x = 0
+                    pass
             except:
                 print("error with " + field)
+        if exchange_update_response.HasField('competition_event'):
+            print(exchange_update_response.competition_event)
+        if exchange_update_response.HasField('pnl_update'):
+            print(exchange_update_response.pnl_update)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Run the exchange client')

@@ -53,6 +53,10 @@ class BasicMM():
         bp_3 = self.round_to_inc(stf - width * 3.0, self.tick_sizes[c], False)
         ap_3 = self.round_to_inc(stf + width * 3.0, self.tick_sizes[c])
 
+        # even wider orders
+        bp_4 = self.round_to_inc(stf - 0.4, self.tick_sizes[c], False)
+        ap_4 = self.round_to_inc(stf + 0.4, self.tick_sizes[c])
+
         #position management:
         # bids_left = max_pos - self.pos[c]
         # asks_left = max_pos + self.pos[c]
@@ -90,14 +94,16 @@ class BasicMM():
         as_1 = int(clip * self.pos[c] / max_pos + clip)
         bs_2 = min(bs_1 * 2, 100)
         as_2 = min(as_1 * 2, 100)
-        bs_3 = min(100, (max_pos - self.pos - bs_1 - bs_2) // 2)
-        as_3 = min(100, (max_pos + self.pos - as_1 - as_2) // 2)
+        bs_3 = max(min(100, (max_pos - self.pos[c] - bs_1 - bs_2)), 0)
+        as_3 = max(min(100, (max_pos + self.pos[c] - as_1 - as_2)), 0)
+        bs_4 = max(min(100, (max_pos - self.pos[c] - bs_1 - bs_2 - bs_3)), 0)
+        as_4 = max(min(100, (max_pos + self.pos[c] - as_1 - as_2 - as_3)), 0)
 
         return {'contract': c,
-                'bid_prices': [bp_1, bp_2, bp_3], 
-                'bid_sizes': [bs_1, bs_2, bs_3],
-                'ask_prices': [ap_1, ap_2, ap_3],
-                'ask_sizes': [as_1, as_2, as_3],
+                'bid_prices': [bp_1, bp_2, bp_3, bp_4], 
+                'bid_sizes': [bs_1, bs_2, bs_3, bs_4],
+                'ask_prices': [ap_1, ap_2, ap_3, ap_4],
+                'ask_sizes': [as_1, as_2, as_3, as_4],
                 'stf': stf,
                 'pen': pen}
     

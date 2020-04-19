@@ -4,4 +4,81 @@ Traceback (most recent call last):
     lock.acquire()
 KeyboardInterrupt: 
 Case has begun. Starting to handle exchange updates...
-EFQ mid 5.5
+['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
+BID: 100.55, ASK: 100.56
+BID: 99.59, ASK: 99.60000000000001
+BID: 100.8, ASK: 100.81
+BID: 100.52, ASK: 100.53
+BID: 99.44, ASK: 99.45
+BID: 101.02, ASK: 101.03
+BID: 100.74, ASK: 100.75
+BID: 99.15, ASK: 99.16000000000001
+BID: 99.33, ASK: 99.34
+BID: 99.14, ASK: 99.15
+['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
+BID: 101.37, ASK: 101.38000000000001
+BID: 99.94, ASK: 99.95
+BID: 101.48, ASK: 101.49000000000001
+BID: 101.16, ASK: 101.17
+BID: 99.86, ASK: 99.87
+BID: 102.14, ASK: 102.15
+BID: 101.58, ASK: 101.59
+BID: 99.94, ASK: 99.95
+BID: 99.98, ASK: 99.99000000000001
+BID: 100.16, ASK: 100.17
+['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
+BID: 102.29, ASK: 102.30000000000001
+BID: 99.53, ASK: 99.54
+BID: 102.82, ASK: 102.83
+BID: 100.41, ASK: 100.42
+BID: 100.36, ASK: 100.37
+BID: 100.75, ASK: 100.76
+BID: 100.82, ASK: 100.83
+BID: 98.11, ASK: 98.12
+BID: 99.1, ASK: 99.11
+BID: 98.95, ASK: 98.96000000000001
+fill_update: username: "CASEMANAGER_1"
+order_id: "01E6712NZ6P0J602WDZ4H60XQC"
+asset: "D"
+trades {
+  price_level: "100.41"
+  quantity: 18
+}
+filled_qty: 18
+remaining_qty: 399999982
+timestamp: "1587226434298"
+
+fill_update: username: "CASEMANAGER_1"
+order_id: "01E6712NZKXHYY03TFH47B0WN4"
+order_side: SELL
+asset: "H"
+trades {
+  price_level: "98.12"
+  quantity: 46
+}
+filled_qty: 46
+remaining_qty: 399999954
+timestamp: "1587226434942"
+
+['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J']
+BID: 101.66, ASK: 101.67
+BID: 99.01, ASK: 99.02000000000001
+BID: 104.03, ASK: 104.04
+BID: 99.79, ASK: 99.80000000000001
+BID: 99.86, ASK: 99.87
+BID: 99.79, ASK: 99.80000000000001
+BID: 100.1, ASK: 100.11
+BID: 96.53, ASK: 96.54
+BID: 99.95, ASK: 99.96000000000001
+BID: 98.44, ASK: 98.45
+fill_update: username: "CASEMANAGER_1"
+order_id: "01E6712QHKSYK31J71EXFG1ZAG"
+asset: "D"
+trades {
+  price_level: "99.79"
+  quantity: 38
+}
+filled_qty: 38
+remaining_qty: 399999962
+timestamp: "1587226435368"
+

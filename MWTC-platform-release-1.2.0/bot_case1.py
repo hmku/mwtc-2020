@@ -122,7 +122,7 @@ class SampleBot(CompetitorBot):
                 pp = 1 - pc - pg # p(peakers at expiry)
                 ppcons = bisect_right(CDFS[d], pc + pg + (pp/2)) - 1 # avg consumption given peaker plants
                 self.ltfs[contract] = pg * 2 + pc * 3 + pp * (max(3, price) + (ppcons + s - c) * 0.001)
-                self.width[contract] = max(1, math.sqrt(d)) * 0.01 # get tighter as we get closer to expiry
+                self.width[contract] = max(2, math.sqrt(d)) * 0.005 # get tighter as we get closer to expiry
                 self.clip[contract] = int(1 / self.width[contract]) # start with small size, get bigger
                 self.max_ranges = self.width # try this for now
             print(self.ltfs)
